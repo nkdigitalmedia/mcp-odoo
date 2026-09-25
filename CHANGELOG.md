@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow the reviewed `res.partner.is_company` compatibility field through the
+  gated write validator when Odoo reports it as stored but readonly metadata.
+  Other readonly fields remain blocked, and Odoo remains authoritative when
+  the approved create or write executes.
+
 ## [1.3.2] - 2026-08-19
 
 ### Changed

@@ -349,6 +349,37 @@ def test_validate_write_flags_readonly_field():
     assert "readonly_field" in codes
 
 
+def test_validate_write_allows_known_orm_writable_readonly_metadata_field():
+    report = agent_tools.validate_write_report(
+        model="res.partner",
+        operation="write",
+        values={"is_company": True},
+        record_ids=[7],
+        fields_metadata={
+            "is_company": {
+                "type": "boolean",
+                "readonly": True,
+                "store": True,
+            }
+        },
+        metadata_source="server",
+    )
+
+    assert report["success"] is True
+    assert report["approval"] is not None
+    assert report["issues"] == [
+        {
+            "code": "readonly_metadata_override",
+            "severity": "warning",
+            "message": (
+                "'is_company' is readonly in fields_get metadata, but "
+                "res.partner.is_company is a reviewed ORM-writable compatibility field; "
+                "Odoo remains authoritative at execution."
+            ),
+        }
+    ]
+
+
 def test_validate_write_emits_many2one_and_relational_hints():
     report = agent_tools.validate_write_report(
         model="res.partner",

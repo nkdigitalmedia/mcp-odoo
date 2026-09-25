@@ -28,6 +28,9 @@ from .field_ranking import (
 )
 
 WRITE_OPERATIONS = {"create", "write", "unlink"}
+ORM_WRITABLE_READONLY_METADATA_FIELDS = {
+    ("res.partner", "is_company"),
+}
 SAFE_DOMAIN_OPERATORS = {
     "=",
     "!=",
@@ -277,6 +280,7 @@ def verify_write_approval(approval: dict[str, Any]) -> tuple[bool, str]:
 
 
 def _metadata_issues_for_values(
+    model: str,
     values: dict[str, Any],
     fields_metadata: dict[str, Any],
     *,
@@ -300,7 +304,24 @@ def _metadata_issues_for_values(
             )
             continue
         field_type = str(meta.get("type", ""))
-        if meta.get("readonly"):
+        readonly_compatibility_override = (
+            meta.get("readonly")
+            and meta.get("store") is True
+            and (model, field_name) in ORM_WRITABLE_READONLY_METADATA_FIELDS
+        )
+        if readonly_compatibility_override:
+            issues.append(
+                {
+                    "code": "readonly_metadata_override",
+                    "severity": "warning",
+                    "message": (
+                        f"{prefix}{field_name!r} is readonly in fields_get metadata, but "
+                        f"{model}.{field_name} is a reviewed ORM-writable compatibility "
+                        "field; Odoo remains authoritative at execution."
+                    ),
+                }
+            )
+        elif meta.get("readonly"):
             issues.append(
                 {
                     "code": "readonly_field",
@@ -358,13 +379,13 @@ def validate_write_report(
                 if not isinstance(entry, dict):
                     continue  # preview already flagged the entry shape
                 entry_issues, entry_hints = _metadata_issues_for_values(
-                    entry, fields_metadata, label=f"values_list[{index}]"
+                    model, entry, fields_metadata, label=f"values_list[{index}]"
                 )
                 issues.extend(entry_issues)
                 field_hints.extend(entry_hints)
         else:
             value_issues, value_hints = _metadata_issues_for_values(
-                normalized_values, fields_metadata
+                model, normalized_values, fields_metadata
             )
             issues.extend(value_issues)
             field_hints.extend(value_hints)
